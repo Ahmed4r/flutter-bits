@@ -24,7 +24,8 @@ class _InteractiveAuroraBackgroundState
     super.initState();
     _loadShader();
     _ticker = createTicker((elapsed) {
-      if (_shader != null) { // تحديث الحالة فقط لو الشادر جاهز لتقليل العمليات
+      if (_shader != null) {
+        // تحديث الحالة فقط لو الشادر جاهز لتقليل العمليات
         setState(() {
           _time = elapsed.inMilliseconds / 1000;
         });
@@ -42,9 +43,7 @@ class _InteractiveAuroraBackgroundState
   Future<void> _loadShader() async {
     try {
       // تصحيح المسار ليتوافق مع pubspec.yaml المحدث
-      final program = await ui.FragmentProgram.fromAsset(
-        'shaders/aurora.frag',
-      );
+      final program = await ui.FragmentProgram.fromAsset('shaders/aurora.frag');
       setState(() {
         _shader = program.fragmentShader();
       });
@@ -129,7 +128,7 @@ class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
+      ..color = Colors.white.withValues(alpha: 0.2)
       ..strokeWidth = 0.5;
 
     const double step = 40.0;
