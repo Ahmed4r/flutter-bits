@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'dart:ui';
-
+import 'package:flutterbits/widgets/code_section.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutterbits/line_waves.dart';
@@ -13,6 +17,78 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final Uri _url = Uri.parse('https://github.com/Ahmed4r/flutter-bits.git');
+  Future<void> _launchUrl() async {
+    try {
+      if (await canLaunchUrl(_url)) {
+        await launchUrl(
+          _url,
+          mode: LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank', // يضمن فتح تبويب جديد دون حظر
+        );
+      } else {
+        debugPrint('Could not launch $_url');
+      }
+    } catch (e) {
+      debugPrint('Error launching URL: $e');
+    }
+  }
+
+  late String stars = "...";
+  @override
+  void initState() {
+    super.initState();
+    // 2️⃣ بدء جلب النجوم فور تشغيل الصفحة
+    _loadStarsData();
+  }
+
+  Future<void> _loadStarsData() async {
+    final int count = await fetchGitHubStars();
+    if (mounted) {
+      setState(() {
+        // تنسيق الرقم إذا تجاوز الألف ليظهر بشكل احترافي (مثال: 1.2k)
+        stars = count >= 1000
+            ? '${(count / 1000).toStringAsFixed(1)}k+'
+            : '$count';
+      });
+    }
+  }
+
+  Future<int> fetchGitHubStars() async {
+    final String owner = 'Ahmed4r';
+    final String repo = 'flutter-bits';
+    final Uri url = Uri.parse('https://api.github.com/repos/$owner/$repo');
+
+    try {
+      final response = await http.get(
+        url,
+        // 🛡️ الـ Headers التالية ضرورية جداً لـ Flutter Web ولتجنب حظر GitHub API
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent':
+              'Flutter-Web-App', // GitHub يطلب معرفاً للجهة المصدرة للطلب
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+
+        // تأمين جلب القيمة وتحويلها برمجياً لتفادي أخطاء النوع (Type Casting)
+        final int stargazersCount = data['stargazers_count'] ?? 0;
+
+        stars = stargazersCount.toString();
+        log("GitHub Stars Loaded: $stars");
+
+        return stargazersCount;
+      } else {
+        log("GitHub API Error: ${response.statusCode} - ${response.body}");
+        return 0;
+      }
+    } catch (e) {
+      log("GitHub Fetch Exception: $e");
+      return 0;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +143,12 @@ class _HomePageState extends State<HomePage> {
           const Spacer(),
           Padding(
             padding: const EdgeInsets.all(24.0),
-            child: _buildPrimaryButton("GitHub", small: false, fullWidth: true),
+            child: _buildPrimaryButton(
+              "GitHub",
+              small: false,
+              fullWidth: true,
+              onPressed: () => _launchUrl(),
+            ),
           ),
         ],
       ),
@@ -103,7 +184,7 @@ class _HomePageState extends State<HomePage> {
           decoration: BoxDecoration(
             // Subtle tint container layer allowing background shader elements to bleed through
             color: const Color(0xff040D21).withOpacity(0.3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(15),
             border: Border.all(color: Colors.white.withOpacity(0.05), width: 1),
           ),
           child: Row(
@@ -131,7 +212,10 @@ class _HomePageState extends State<HomePage> {
                 _navItem("Showcase"),
                 const SizedBox(width: 32),
               ],
-              _buildPrimaryButton("GitHub", small: true),
+              InkWell(
+                onTap: () => _launchUrl(),
+                child: _buildPrimaryButton("GitHub", small: true),
+              ),
             ],
           ),
         ),
@@ -160,113 +244,124 @@ class _HomePageState extends State<HomePage> {
         horizontal: 24,
         vertical: isMobile ? 60 : 120,
       ),
-      child: Column(
+      child: Row(
         children: [
-          Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color.fromARGB(
-                    255,
-                    241,
-                    241,
-                    241,
-                  ).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(100),
-                  border: Border.all(
-                    color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.2),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 50,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                        color: Colors.white,
+          Column(
+            children: [
+              Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(
+                        255,
+                        241,
+                        241,
+                        241,
+                      ).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: const Color.fromARGB(
+                          255,
+                          0,
+                          0,
+                          0,
+                        ).withOpacity(0.2),
                       ),
-                      child: Center(
-                        child: Text(
-                          "New",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 50,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(15),
+                            color: Colors.white,
+                          ),
+                          child: Center(
+                            child: Text(
+                              "New",
+                              style: TextStyle(
+                                color: Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Shaders Added",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Shaders Added",
+                  )
+                  .animate()
+                  .fadeIn(duration: 600.ms)
+                  .scale(begin: const Offset(0.8, 0.8)),
+              const SizedBox(height: 48),
+              ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Colors.white, Color(0xff999999)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ).createShader(bounds),
+                    child: Text(
+                      "Beautifully crafted\nFlutter components",
+                      textAlign: TextAlign.center,
                       style: TextStyle(
+                        fontSize: isMobile ? 42 : 88,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                        letterSpacing: isMobile ? -1 : -4,
                         color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  ],
-                ),
-              )
-              .animate()
-              .fadeIn(duration: 600.ms)
-              .scale(begin: const Offset(0.8, 0.8)),
-          const SizedBox(height: 48),
-          ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Colors.white, Color(0xff999999)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ).createShader(bounds),
-                child: Text(
-                  "Beautifully crafted\nFlutter components",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: isMobile ? 42 : 88,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                    letterSpacing: isMobile ? -1 : -4,
-                    color: Colors.white,
-                  ),
-                ),
-              )
-              .animate()
-              .fadeIn(delay: 200.ms, duration: 800.ms)
-              .slideY(begin: 0.1, end: 0),
-          const SizedBox(height: 32),
-          SizedBox(
-                width: isMobile ? double.infinity : 700,
-                child: Text(
-                  "An open-source collection of animated, interactive, and highly customizable components built with Flutter. Ready to copy and paste.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: isMobile ? 16 : 20,
-                    color: Colors.white.withOpacity(0.5),
-                    height: 1.5,
-                  ),
-                ),
-              )
-              .animate()
-              .fadeIn(delay: 400.ms, duration: 800.ms)
-              .slideY(begin: 0.1, end: 0),
-          const SizedBox(height: 56),
-          Flex(
-                direction: isMobile ? Axis.vertical : Axis.horizontal,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildPrimaryButton("Browse Components"),
-                  if (isMobile)
-                    const SizedBox(height: 16)
-                  else
-                    const SizedBox(width: 16),
-                  _buildSecondaryButton("Documentation"),
-                ],
-              )
-              .animate()
-              .fadeIn(delay: 600.ms, duration: 800.ms)
-              .slideY(begin: 0.1, end: 0),
+                  )
+                  .animate()
+                  .fadeIn(delay: 200.ms, duration: 800.ms)
+                  .slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 32),
+              SizedBox(
+                    width: isMobile ? double.infinity : 700,
+                    child: Text(
+                      "An open-source collection of animated, interactive, and highly customizable components built with Flutter. Ready to copy and paste.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: isMobile ? 16 : 20,
+                        color: Colors.white.withOpacity(0.5),
+                        height: 1.5,
+                      ),
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 400.ms, duration: 800.ms)
+                  .slideY(begin: 0.1, end: 0),
+              const SizedBox(height: 56),
+              Flex(
+                    direction: isMobile ? Axis.vertical : Axis.horizontal,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildPrimaryButton("Browse Components"),
+                      if (isMobile)
+                        const SizedBox(height: 16)
+                      else
+                        const SizedBox(width: 16),
+                      _buildSecondaryButton("Documentation"),
+                    ],
+                  )
+                  .animate()
+                  .fadeIn(delay: 600.ms, duration: 800.ms)
+                  .slideY(begin: 0.1, end: 0),
+            ],
+          ),
+          Spacer(),
+          if (!isMobile) _buildCodeSection(),
         ],
       ),
     );
@@ -281,7 +376,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 _statItem("2", "Components"),
                 const SizedBox(height: 32),
-                _statItem("1", "GitHub Stars"),
+                _statItem(stars, "GitHub Stars"),
                 const SizedBox(height: 32),
                 _statItem("Free", "Forever"),
               ],
@@ -291,7 +386,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 _statItem("2", "Components"),
                 _divider(),
-                _statItem("1", "GitHub Stars"),
+                _statItem(stars, "GitHub Stars"),
                 _divider(),
                 _statItem("Free", "Forever"),
               ],
@@ -430,6 +525,7 @@ class _HomePageState extends State<HomePage> {
     String text, {
     bool small = false,
     bool fullWidth = false,
+    Function()? onPressed,
   }) {
     Widget button = Container(
       width: fullWidth ? double.infinity : null,
@@ -493,14 +589,18 @@ class _HomePageState extends State<HomePage> {
           Divider(color: Colors.white.withOpacity(0.05)),
           const SizedBox(height: 40),
           Text(
-            "FlutterBits © 2024. Inspired by ReactBits.",
+            "Developed By Ahmed Hegazy",
             style: TextStyle(
               color: const Color.fromARGB(255, 252, 252, 252),
-              fontSize: 18,
+              fontSize: 15,
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCodeSection() {
+    return GlassCodeUI();
   }
 }
